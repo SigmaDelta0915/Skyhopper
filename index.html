@@ -22,10 +22,49 @@
     height: 100vh;
     background: #70c5ce;
   }
+  /* スマホ横向き時にプレイをブロックする案内オーバーレイ */
+  #landscapeBlock {
+    position: fixed;
+    inset: 0;
+    background: #1a1a2e;
+    color: #fff;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+    font-family: Arial, sans-serif;
+    text-align: center;
+    padding: 20px;
+  }
+  #landscapeBlock .icon {
+    width: 70px;
+    height: 70px;
+    border: 5px solid #fff;
+    border-radius: 10px;
+    margin-bottom: 24px;
+    animation: rotateHint 1.6s ease-in-out infinite;
+  }
+  @keyframes rotateHint {
+    0%   { transform: rotate(90deg); }
+    50%  { transform: rotate(0deg); }
+    100% { transform: rotate(0deg); }
+  }
+  #landscapeBlock p {
+    font-size: 18px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    margin: 0;
+  }
 </style>
 </head>
 <body>
 <canvas id="gameCanvas"></canvas>
+
+<div id="landscapeBlock">
+  <div class="icon"></div>
+  <p>このゲームは縦画面専用です。<br>スマートフォンを縦向きにしてください。</p>
+</div>
 
 <script>
 /* =========================================================
@@ -33,18 +72,36 @@
    ========================================================= */
 const GRAVITY          = 0.45;   // 重力の強さ（大きいほど早く落下する）
 const JUMP_STRENGTH     = -8.2;  // タップ時の浮き上がる力（絶対値が大きいほど高く飛ぶ）
-const PIPE_SPEED        = 4;   // 障害物が左に流れる速度（大きいほど速く難しい）
+const PIPE_SPEED        = 3.2;   // 障害物が左に流れる速度（大きいほど速く難しい）
 const PIPE_SPAWN_RATE   = 105;   // 障害物が出現する間隔（フレーム数。小さいほど頻繁に出現）
-const GAP_SIZE          = 130;   // 上下の障害物の隙間の広さ（小さいほど難しい）
+const GAP_SIZE          = 190;   // 上下の障害物の隙間の広さ（小さいほど難しい）
 /* ========================================================= */
 
 const PIPE_WIDTH = 78;
 const PLAYER_RADIUS_RATIO = 0.028; // 画面高さに対するプレイヤー半径の比率
 
+/* =========================================================
+   スマホ横向きブロック機能
+   ========================================================= */
+const PHONE_MAX_DIMENSION = 926; // これ以下の画面サイズかつタッチ操作ならスマホ扱い（iPad等の大型タブレットは除外）
+
+function isLikelyPhone() {
+  const hasTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+  const smallScreen = Math.max(window.innerWidth, window.innerHeight) <= PHONE_MAX_DIMENSION;
+  return hasTouch && smallScreen;
+}
+
+function isBlockedLandscape() {
+  return isLikelyPhone() && window.innerWidth > window.innerHeight;
+}
+/* ========================================================= */
+
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
+const landscapeBlock = document.getElementById('landscapeBlock');
 
 let W = 0, H = 0, DPR = 1;
+let paused = false;
 
 function resizeCanvas() {
   DPR = Math.min(window.devicePixelRatio || 1, 2);
@@ -55,14 +112,22 @@ function resizeCanvas() {
   canvas.style.width = W + 'px';
   canvas.style.height = H + 'px';
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  checkLandscapeBlock();
 }
+
+function checkLandscapeBlock() {
+  const blocked = isBlockedLandscape();
+  landscapeBlock.style.display = blocked ? 'flex' : 'none';
+  paused = blocked || document.hidden;
+}
+
 window.addEventListener('resize', resizeCanvas);
+window.addEventListener('orientationchange', resizeCanvas);
 resizeCanvas();
 
 // ---------- ゲーム状態 ----------
 const STATE = { TITLE: 'title', PLAYING: 'playing', GAMEOVER: 'gameover' };
 let state = STATE.TITLE;
-let paused = false;
 
 let score = 0;
 let bestScore = 0;
@@ -129,21 +194,24 @@ function startGame() {
 ['pointerdown', 'touchstart'].forEach(evt => {
   window.addEventListener(evt, (e) => {
     e.preventDefault();
+    if (isBlockedLandscape()) return;
     handleInput();
   }, { passive: false });
 });
 window.addEventListener('mousedown', (e) => {
+  if (isBlockedLandscape()) return;
   handleInput();
 });
 window.addEventListener('keydown', (e) => {
   if (e.code === 'Space' || e.code === 'ArrowUp') {
+    if (isBlockedLandscape()) return;
     handleInput();
   }
 });
 
 // ---------- タブ切り替え時のポーズ処理 ----------
 document.addEventListener('visibilitychange', () => {
-  paused = document.hidden;
+  checkLandscapeBlock();
   if (!paused) {
     lastTime = performance.now();
   }
@@ -597,6 +665,7 @@ function loop(now) {
 
 // ---------- 起動処理 ----------
 function init() {
+  checkLandscapeBlock();
   draw();
   // ① SDKの初期化完了通知（必須）
   window.parent.postMessage({ type: 'firstFrameReady' }, '*');
