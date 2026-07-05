@@ -83,7 +83,7 @@ const PLAYER_RADIUS_RATIO = 0.028; // 画面高さに対するプレイヤー半
 /* =========================================================
    スマホ横向きブロック機能
    ========================================================= */
-const PHONE_MAX_DIMENSION = 926; // これ以下の画面サイズかつタッチ操作ならスマホ扱い（iPad等の大型タブレットは除外）
+const PHONE_MAX_DIMENSION = 5000; // これ以下の画面サイズかつタッチ操作ならスマホ扱い（iPad等の大型タブレットは除外）
 
 function isLikelyPhone() {
   const hasTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
